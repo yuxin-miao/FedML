@@ -48,10 +48,10 @@ class FedAvgTrainer(object):
         radio_res = np.append(radio_res, [1]) - np.append([0], radio_res)
 
         # Local iterations
-        local_itr = np.random.randint(10, size=num_clients)
+        local_itr = np.random.randint(9, size=num_clients) + 1
 
         logging.info("client_indexes = %s" % str(client_indexes))
-        return client_indexes, radio_res, local_itr
+        return list(client_indexes), list(radio_res), list(local_itr)
 
     # def client_sampling(self, round_idx, client_num_in_total, client_num_per_round):
     #     if client_num_in_total == client_num_per_round:
@@ -80,9 +80,11 @@ class FedAvgTrainer(object):
             """
             # client_indexes = self.client_sampling(round_idx, self.args.client_num_in_total,
             #                                       self.args.client_num_per_round)
-            client_indexes, radio_res_allo, local_train_iter = self.client_sampling(round_idx, self.args.client_num_in_total,
-                                                  self.args.client_num_per_round)
+            client_indexes, radio_res_allo, local_train_iter = self.client_sampling(round_idx,
+                                                                                    self.args.client_num_in_total,
+                                                                                    self.args.client_num_per_round)
             logging.info("client_indexes = " + str(client_indexes))
+            in_client = 0
             for idx, client in enumerate(self.client_list):
                 # update dataset
                 client_idx = client_indexes[idx]
@@ -91,13 +93,19 @@ class FedAvgTrainer(object):
                                             self.train_data_local_num_dict[client_idx])
 
                 # train on new dataset
-                w, loss, time_interval = client.train(net=copy.deepcopy(self.model_global).to(self.device))
-                time_cost = time_interval + (w / radio_res_allo)
+                for j in range(local_train_iter[in_client]):
+                    w, loss, time_interval = client.train(net=copy.deepcopy(self.model_global).to(self.device))
+                # logging.info("time_interval " + str(time_interval) +
+                #              "w[c] " + str(client_idx) + "rad " + str(in_client))
+                # for key, value in w.items():
+                #     print(key, value)
+                time_cost = time_interval + ((sum(w["linear.weight"]) + sum(w["linear.bias"])) / radio_res_allo[in_client])
                 # self.logger.info("local weights = " + str(w))
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 loss_locals.append(copy.deepcopy(loss))
                 w_time_cost[client.get_sample_number()] = [w, time_cost]  # store in the dataframe as a new column
                 logging.info('Client {:3d}, loss {:.3f}'.format(client_idx, loss))
+                in_client = in_client + 1
 
             # update global weights
             w_glob = self.aggregate(w_locals)

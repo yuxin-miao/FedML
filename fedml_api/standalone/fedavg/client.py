@@ -69,7 +69,10 @@ class Client:
             # logging.info('Client Index = {}\tEpoch: {}\tLoss: {:.6f}'.format(
             #     self.client_idx, epoch, sum(epoch_loss) / len(epoch_loss)))
         time_end = float(time.time())
-        return net.cpu().state_dict(), sum(epoch_loss) / len(epoch_loss), (time_end - time_start)
+        div = len(epoch_loss)
+        if div == 0:
+            div = 1
+        return net.cpu().state_dict(), sum(epoch_loss) / div, (time_end - time_start)
 
     def local_test(self, model_global, b_use_test_dataset=False):
         model_global.eval()
