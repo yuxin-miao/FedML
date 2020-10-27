@@ -7,7 +7,9 @@ import numpy as np
 import torch
 import wandb
 
+# ************************************************************************************************************ # newly added libarary, to insert delay to the program.
 import time
+# ************************************************************************************************************ #
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "../../../")))
 
@@ -247,10 +249,14 @@ if __name__ == "__main__":
     # load data
     dataset = load_data(args, args.dataset)
 
-    # run scheduler
+# ************************************************************************************************************ #
+    # run scheduler in background.
     os.system("python -u " + os.getcwd() + "/scheduler.py " + str(args.client_num_in_total) + " " + str(args.client_num_per_round) + " > scheduler.log &")
-    
-    time.sleep(5)
+# ************************************************************************************************************ #
+
+# ************************************************************************************************************ #
+    time.sleep(5) # insert 5 seconds delay to make sure scheduler have alreadly been set up.
+# ************************************************************************************************************ #
 
     # create model.
     # Note if the model is DNN (e.g., ResNet), the training will be very slow.

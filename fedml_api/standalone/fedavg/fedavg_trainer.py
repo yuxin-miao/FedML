@@ -1,9 +1,11 @@
 import copy
 import logging
 
-import pandas as pd
 
+# ************************************************************************************************************ # newly added libraries
+import pandas as pd
 import socket
+# ************************************************************************************************************ #
 
 import numpy as np
 import wandb
@@ -39,6 +41,7 @@ class FedAvgTrainer(object):
             self.client_list.append(c)
         logging.info("############setup_clients (END)#############")
 
+# ************************************************************************************************************ # Simply setup a client to recieve the message from server.
     def client_sampling(self):
         # setup client
         hostname = socket.gethostname()
@@ -51,11 +54,26 @@ class FedAvgTrainer(object):
         # close connection
         client_socket.close()
 
+        # decode the message (string) into numbers and arraies.
         client_indexes = [int(i) for i in response[0].split(' ')]
         local_itr = [int(i) for i in response[1].split(' ')][0]
         radio_res = [float(i) for i in response[2].split(' ')]
 
         return client_indexes, local_itr, radio_res
+
+# the following code is the code before the modification:
+
+    # def client_sampling(self, round_idx, client_num_in_total, client_num_per_round):
+    #     if client_num_in_total == client_num_per_round:
+    #         client_indexes = [client_index for client_index in range(client_num_in_total)]
+    #     else:
+    #         num_clients = min(client_num_per_round, client_num_in_total)
+    #         np.random.seed(round_idx)  # make sure for each comparison, we are selecting the same clients each round
+    #         client_indexes = np.random.choice(range(client_num_in_total), num_clients, replace=False)
+    #     logging.info("client_indexes = %s" % str(client_indexes))
+    #     return client_indexes
+
+# ************************************************************************************************************ #
 
     def train(self):
         for round_idx in range(self.args.comm_round):
@@ -68,7 +86,16 @@ class FedAvgTrainer(object):
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
             Instead of changing the 'Client' instances, our implementation keeps the 'Client' instances and then updates their local dataset 
             """
+
+# ************************************************************************************************************ #
+            # change to the newly defined client_sampling function.
             client_indexes, local_itr, radio_res = self.client_sampling()
+
+# the following code is the code before the modification:
+
+            # client_indexes = self.client_sampling(round_idx, self.args.client_num_in_total, self.args.client_num_per_round)
+
+# ************************************************************************************************************ #
             logging.info("client_indexes = " + str(client_indexes))
 
             for idx, client in enumerate(self.client_list):
@@ -79,10 +106,22 @@ class FedAvgTrainer(object):
                                             self.train_data_local_num_dict[client_idx])
 
                 # train on new dataset
+
+# ************************************************************************************************************ #
+                # add a new parameter "local_itr" to the funciton "client.train()"
+                # add a new return value "time_interval" which is the time consumed for training model in client.
                 w, loss, time_interval = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
 
+                # calculate the time cost.
                 time_cost = time_interval + ((sum(w["linear.weight"]) + sum(w["linear.bias"])) / radio_res[idx])
 
+                # Currently, there is no need to write those parameter "w" and "time_cost" to a csv file.
+
+# the following code is the code before the modification:
+
+                w, loss = client.train(net=copy.deepcopy(self.model_global).to(self.device))
+
+# ************************************************************************************************************ #
                 # self.logger.info("local weights = " + str(w))
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 loss_locals.append(copy.deepcopy(loss))

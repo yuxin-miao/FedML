@@ -1,3 +1,5 @@
+# ************************************************************************************************************ #
+# import libraries
 import socket
 import sys
 import numpy as np
@@ -8,6 +10,9 @@ import logging
 def scheduler(round_idx, client_num_in_total, client_num_per_round):
     # read feedback
     logging.info("start read feedBack")
+
+    # this part should be used later to read the csv file, which contains the information of parameter "w" and "time_cost"
+    
     logging.info("stop read feedBack")
     
     # random sample clients
@@ -32,15 +37,16 @@ def scheduler(round_idx, client_num_in_total, client_num_per_round):
 
     return s_client_indexes + "," + s_local_itr + "," + s_radio_res
 
-client_num_in_total = int(sys.argv[1])
+# get program arguments
+client_num_in_total = int(sys.argv[1]) 
 client_num_per_round = int(sys.argv[2])
 
 logging.basicConfig()
 
-#setup the socket server
+# setup the socket server
 host = socket.gethostname()
 server = socket.socket()
-server.bind((host, 8999))
+server.bind((host, 8999)) # bind the server to port 8999. Before running the code, make sure there is no program running under this port.
 
 server.listen(5) # maximum connections 5.
 
@@ -48,11 +54,13 @@ round_idx = 0
 
 while True:
     client, addr = server.accept() # connected to client.
-    print("round " + str(round_idx) + " connected address: " + str(addr))
+    print("round " + str(round_idx) + " connected address: " + str(addr)) # print connection message.
 
     mes = scheduler(round_idx, client_num_in_total, client_num_per_round)
-    client.send(mes.encode())
+    client.send(mes.encode()) # send the message to the connected client.
 
     client.close() # close the connection
 
-    round_idx = round_idx + 1
+    round_idx = round_idx + 1 # record the current round of aggregation.
+
+# ************************************************************************************************************ #
