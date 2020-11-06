@@ -1,10 +1,10 @@
 import copy
 import logging
 
-
 # ************************************************************************************************************ # newly added libraries
 import pandas as pd
 import socket
+import torch
 # ************************************************************************************************************ #
 
 import numpy as np
@@ -76,11 +76,22 @@ class FedAvgTrainer(object):
 # ************************************************************************************************************ #
 
     def train(self):
+# ************************************************************************************************************ #
+        # Initialized values
+        local_itr_lst = np.zeros((1, self.args.comm_round)) # historical local iterations.
+        client_selec_lst = np.zeros((self.args.comm_round, self.args.client_num_in_total)) # historical client selections.
+# ************************************************************************************************************ #
+
         for round_idx in range(self.args.comm_round):
             logging.info("################Communication round : {}".format(round_idx))
 
             self.model_global.train()
-            w_locals, loss_locals = [], []
+
+# ************************************************************************************************************ #
+            last_w = self.model_global.cpu().state_dict() # store the last model's training parameters.
+
+            w_locals, loss_locals, FPF_lst = [], [], [] # Initialization
+# ************************************************************************************************************ #
 
             """
             for scalability: following the original FedAvg algorithm, we uniformly sample a fraction of clients in each round.
@@ -96,6 +107,13 @@ class FedAvgTrainer(object):
             # client_indexes = self.client_sampling(round_idx, self.args.client_num_in_total, self.args.client_num_per_round)
 
 # ************************************************************************************************************ #
+
+# ************************************************************************************************************ #
+            # Update local_itr_lst & client_selec_lst
+            local_itr_lst[round_idx] = local_itr
+            client_selec_lst[round_idx, client_indexes] = 1
+# ************************************************************************************************************ #
+
             logging.info("client_indexes = " + str(client_indexes))
 
             for idx, client in enumerate(self.client_list):
@@ -112,16 +130,21 @@ class FedAvgTrainer(object):
                 # add a new return value "time_interval" which is the time consumed for training model in client.
                 w, loss, time_interval = client.train(net=copy.deepcopy(self.model_global).to(self.device), local_iteration = local_itr)
 
-                # calculate the time cost.
-                time_cost = time_interval + ((sum(w["linear.weight"]) + sum(w["linear.bias"])) / radio_res[idx])
-
-                # Currently, there is no need to write those parameter "w" and "time_cost" to a csv file.
-
 # the following code is the code before the modification:
 
                 w, loss = client.train(net=copy.deepcopy(self.model_global).to(self.device))
 
 # ************************************************************************************************************ #
+
+# ************************************************************************************************************ #
+                # calculate FPF index.
+                FPF_index = 0
+                for para in w.keys():
+                    FPF_index += torch.norm(w[para] - last_w[para])
+                FPF_index = FPF_index / np.dot(local_itr_lst, client_selec_lst[:, client_idx])
+                FPF_lst.append(FPF_index)
+# ************************************************************************************************************ #
+
                 # self.logger.info("local weights = " + str(w))
                 w_locals.append((client.get_sample_number(), copy.deepcopy(w)))
                 loss_locals.append(copy.deepcopy(loss))
